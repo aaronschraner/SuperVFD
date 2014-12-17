@@ -190,7 +190,7 @@ void splash(char message[8], unsigned int del)
     splashmsg[i]=message[i];
   }
 }
-
+boolean usd=false;
 void setup()
 {
   
@@ -204,10 +204,52 @@ void setup()
   
 }
 int mydel=200;
-uint16_t transpose(uint16_t in)
+byte trn[16]=
 {
-  uint16_t result;
-  result |= 0;
+  1, //0
+  0, //1
+  15,//2
+  14,//3
+  13,//4
+  12,//5
+  11,//6
+  10,//7
+  8, //6
+  9, //9
+  7, //10
+  6, //11
+  5, //12
+  4, //13
+  3, //14
+  2  //15
+};
+byte tra[16]=
+{
+  2, //0
+  1, //1
+  0, //2
+  15,//3
+  14,//4
+  13,//5
+  12,//6
+  11,//7
+  8, //8
+  9, //9
+  10,//10
+  7, //11
+  6, //12
+  5, //13
+  4, //14
+  3, //15
+};
+uint16_t transpose(uint16_t in, byte* pat)
+{
+  uint16_t result=0;
+  for(int i=0;i<16;i++)
+  {
+    result |= ((in >> 15-i) & 0x0001) << 15 >> pat[i];
+  }
+  return result;
 }
 unsigned long mymillis;
 int backset;
@@ -224,12 +266,21 @@ void loop()
   {
     if(c<8)
     {
-      data[7-c]=anch((splashdel>0?splashmsg[c]:msg[c]));
+      data[(usd?c:7-c)]=(usd?
+          transpose(anch((splashdel>0?splashmsg[c]:msg[c])),tra):
+          anch((splashdel>0?splashmsg[c]:msg[c])));
       //data[7-c] |= 0x00E0;
     }
   }
   if(Serial.available())
   {
+    if(Serial.peek() == '@')
+    {
+      Serial.read();
+      usd=!usd;
+    }
+    else
+    {
     int i;
     i=0;
     for(int x=0;x<8;x++)
@@ -240,6 +291,7 @@ void loop()
     {
       msg[i]=Serial.read();
       i++;
+    }
     }
   }
   if(!digitalRead(6)&&!lr6&&millis() > canctr)
@@ -262,8 +314,8 @@ void loop()
   }
   lr5=!digitalRead(5);
   data[0]|=(lr6?0x00E0:0);
-  data[9]=bts((millis()/1000)%60);
-  data[8]=bts((millis()/1000/60)%60);
+  data[9]=(usd?transpose(bts((millis()/1000/60)%60),trn):bts((millis()/1000)%60));
+  data[8]=(usd?transpose(bts((millis()/1000)%60),trn):bts((millis()/1000/60)%60));
   //data[2]|=0x0060;// AM/PM indicators
   /*for(int i=0;i<10; i++)
   {
