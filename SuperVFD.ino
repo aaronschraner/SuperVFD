@@ -12,7 +12,7 @@
 
 void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPin)
 {
-  PORTD|=ONBIT;
+  PORTD&=~ONBIT;
   PORTB&=~hslatchPin;
   delayMicroseconds(sdel);
   PORTB|=hslatchPin;
@@ -39,7 +39,7 @@ void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPi
     PORTB&=~hsclockPin;
     //delay(100);
   }
-  PORTD&=~ONBIT;
+  PORTD|=ONBIT;
 }
 byte dpins[4]={DATA0, DATA1, DATA2, DATA3};
 byte rawData[4];
