@@ -1,5 +1,11 @@
 //really big VFD driver
+//created by Aaron Schraner
+//Started Dec 15, 2014
+//Current Dec 17, 2014
+
 #include <EEPROM.h>
+//for storing can count
+
 #define CLOCK 0x20 //pin 13
 #define RESET 0x10 //pin 12
 #define DATA0 0x08 //pin 11
@@ -9,17 +15,28 @@
 #define ONBIT 0x80 //pin 7 (PORTD)
 #define sdel 2
 #define ADDR_CANS 0x10 //arbitrary
-
+#define NPNP_LAG 2 //Literally so fast we need to worry about transistor lag
+#define HIGHDEL 1000 //time to leave display on for fdisp()
+//highspeedKshiftOut
+//operate multiple shift registers simultaneously
+//using direct memory access for GPIO
 void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPin)
 {
-  PORTD&=~ONBIT;
-  PORTB&=~hslatchPin;
+  PORTD&=~ONBIT; 
+  //disable display while we think
+  
+  delayMicroseconds(NPNP_LAG); 
+  //let the circuit catch up
+  
+  PORTB&=~hslatchPin; 
   delayMicroseconds(sdel);
   PORTB|=hslatchPin;
   delayMicroseconds(sdel);
-  //delay(100);
-  const int lim=4;
-  int p,i;
+  //reset the shift registers
+  
+  const int lim=4; //number of shift registers
+  int p,i; //p is which shift register, i is the bit we're processing
+  
   for(i=0;i<8;i++)
   {
     for(p=0;p<lim;p++)
@@ -32,18 +49,27 @@ void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPi
       {
         PORTB&=~hsdataPins[p];
       }
-      //delay(10);
+      //write the shift register data directly through PORTB
+      
     }
     PORTB|=hsclockPin;
-    //delay(100);
     PORTB&=~hsclockPin;
-    //delay(100);
+    //cycle the clock for the next bit
   }
+  //delayMicroseconds(NPNP_LAG); //unnecessary
+
   PORTD|=ONBIT;
+  //re-enable the display
 }
-byte dpins[4]={DATA0, DATA1, DATA2, DATA3};
-byte rawData[4];
+byte dpins[4]={DATA0, DATA1, DATA2, DATA3}; //see #define block
+byte rawData[4]; //for faster writing to shift registers
+
 uint16_t data[10] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
+//holds every cell on the VFD display
+//data[0-7] are alphanumeric.
+//data[8-9] are both two digit seven segment displays
+
+//letters for alphanumeric digits
 const uint16_t lcLetters[] = 
 {
   //0123456789X12345
@@ -106,6 +132,8 @@ const uint16_t lcLetters[] =
   0b0000010000001010, //y
   0b0100100100000000, //z
 };
+
+//numbers for alphanumeric digits
 const uint16_t anums[10]=
 {
   //0123456789X12345
@@ -121,6 +149,9 @@ const uint16_t anums[10]=
   0b1110000100010001, //9
   //0123456789X12345
 };
+
+//numbers for seven segment digits 
+// (not suitable for direct assignment)
 const uint8_t nnums[10] = 
 {
   //1234567
@@ -136,6 +167,9 @@ const uint8_t nnums[10] =
   0b1111101, //9
   
 };
+
+//convert number (0-999) to a direct assignable
+//code for seven segment displays
 uint16_t bts(int num)
 {
   uint16_t result=0x0000;
@@ -143,7 +177,12 @@ uint16_t bts(int num)
   result|=nnums[num%10] << 8;
   return result;
 }
-char cmax='z';
+
+char cmax='z'; //highest recognized character
+
+//AlphaNumericCHaracter
+//get a 16 bit variable for direct writing to alphanumeric digits
+//for a specified character (in)
 uint16_t anch(char in)
 {
   if(in >= 'A' && in <= 'z')
@@ -163,9 +202,11 @@ uint16_t anch(char in)
     return 0b0100111000001110;
   }
 }
+
+//flush the display
+// (uses data[] as a buffer and hskshiftOut for I/O)
 void fdisp()
 {
-  byte baketarget[12];
   for(int i=0;i<16;i++)
   {
     rawData[0]=~(data[i]&0xFF);
@@ -173,15 +214,15 @@ void fdisp()
     rawData[2]=~((0x80>>i)&0xFF);
     rawData[3]=~((0x8000>>i)&0xFF);
     hskshiftOut(dpins, rawData, CLOCK, RESET);
-    //bake(dpins, rawData);
-    //bso(ref, RESET, CLOCK);
-    //delay(200);
-    delayMicroseconds(1000);
+    delayMicroseconds(HIGHDEL);
   }
 }
-unsigned short cans=0;
-unsigned int splashdel=0;
-char splashmsg[8];
+
+unsigned short cans=0; // :)
+unsigned int splashdel=0; //for splash messages
+char splashmsg[8]; //ditto
+
+//put a message (<=8 characters) for a specified amount of display cycles
 void splash(char message[8], unsigned int del)
 {
   splashdel=del;
@@ -190,20 +231,30 @@ void splash(char message[8], unsigned int del)
     splashmsg[i]=message[i];
   }
 }
-boolean usd=false;
+
+boolean usd=true; //if the display is upside down (mine is)
+
 void setup()
 {
   
-  DDRB|=0x3F; //set directions
-  DDRD|=ONBIT;
-  for(int i=0;i<10;i++)
+  DDRB|=0x3F; //set directions for pins 8-13
+  DDRD|=ONBIT; //all we really care about
+  
+  for(int i=0;i<10;i++) //ensure draw buffer is clear
     data[i]=0;
-    fdisp();
-  Serial.begin(9600);
+  
+  fdisp(); //reset display
+  
+  Serial.begin(9600); //init serial
+  
   cans = EEPROM.read(ADDR_CANS)<<8 | EEPROM.read(ADDR_CANS+1);
+  //get stored can count
   
 }
+
 int mydel=200;
+
+//bit order for transposing (flipping) numeric digits
 byte trn[16]=
 {
   1, //0
@@ -223,6 +274,8 @@ byte trn[16]=
   3, //14
   2  //15
 };
+
+//bit order for flipping character digits
 byte tra[16]=
 {
   2, //0
@@ -242,6 +295,8 @@ byte tra[16]=
   4, //14
   3, //15
 };
+
+//return upside down segment pattern given order to follow (trn or tra)
 uint16_t transpose(uint16_t in, byte* pat)
 {
   uint16_t result=0;
@@ -251,88 +306,101 @@ uint16_t transpose(uint16_t in, byte* pat)
   }
   return result;
 }
+
 unsigned long mymillis;
 int backset;
-boolean lr6=false, lr5=false;
-char msg[]="    CANS";
-unsigned int candel=500;
-unsigned long canctr=0;
+boolean lr6=false, lr5=false; //last digitalRead result for pins 6 and 5 
+// (used for debounce/repeat prevention)
+
+char msg[]="    CANS"; //message to display on alphanumeric digits
+
+unsigned int candel=500; // debounce delay for cans (ms)
+unsigned long canctr=0; //for can debounce
+
 void loop()
 {
+  //add the can count to the display message
   msg[0]=(cans/100)%10 + '0';
   msg[1]=(cans/10)%10 + '0';
   msg[2]=cans%10 + '0';
+  
+  //put the message in the draw buffer
   for(int c=0;c<10;c++)
   {
     if(c<8)
     {
-      data[(usd?c:7-c)]=(usd?
-          transpose(anch((splashdel>0?splashmsg[c]:msg[c])),tra):
-          anch((splashdel>0?splashmsg[c]:msg[c])));
-      //data[7-c] |= 0x00E0;
+      data[(usd?7-c:c)]=(usd?
+          anch((splashdel>0?splashmsg[c]:msg[c])): //use normal value if right side up
+          transpose(anch((splashdel>0?splashmsg[c]:msg[c])),tra)); //otherwise flip it
+      //data[7-c] |= 0x00E0; //for turning on pretty lights n stuff
     }
   }
+  
+  //input processing
   if(Serial.available())
   {
     if(Serial.peek() == '@')
     {
       Serial.read();
       usd=!usd;
-    }
+      Serial.write(usd?"Now upside down\n":"Now right side up\n");
+    } //toggle orientation when '@' sent via serial
     else
     {
-    int i;
-    i=0;
-    for(int x=0;x<8;x++)
-    {
-      msg[x]=' ';
-    }
-    while(Serial.available())
-    {
-      msg[i]=Serial.read();
-      i++;
-    }
+      int i;
+      i=0;
+      for(int x=0;x<8;x++)
+      {
+        msg[x]=' '; //fill blank space with spaces
+        // (to prevent unrecognized characters)
+      }
+      while(Serial.available())
+      {
+        msg[i]=Serial.read();
+        i++;
+        //read the serial into the display message
+      }
     }
   }
+  
+  
   if(!digitalRead(6)&&!lr6&&millis() > canctr)
   {
+    //if we get a can or someone pushes the manual increment button
     cans++;
     EEPROM.write(ADDR_CANS,cans>>8 & 0xFF);
     EEPROM.write(ADDR_CANS+1,cans & 0xFF);
-    canctr=millis() + candel;
+    //increment and store number of cans in EEPROM
+    canctr=millis() + candel; //for debouncing
   }
   
-  lr6=!digitalRead(6);
+  lr6=!digitalRead(6); //prevent double-counting
+  
   if(!digitalRead(5)&&!lr5)
   {
-    cans=0;
+    //if the reset button is pressed
+    cans=0; //no more cans
+    
+    //reset the count in storage
     EEPROM.write(ADDR_CANS, 0);
     EEPROM.write(ADDR_CANS+1, 0);
-    lr5=true;
-    delay(10);
-    splash("Reset   ", 20);
+    
+    lr5=true; //debounce/repeat prevention
+    splash("Reset   ", 20); //let the user know what they just did
   }
-  lr5=!digitalRead(5);
-  data[0]|=(lr6?0x00E0:0);
-  data[9]=(usd?transpose(bts((millis()/1000/60)%60),trn):bts((millis()/1000)%60));
-  data[8]=(usd?transpose(bts((millis()/1000)%60),trn):bts((millis()/1000/60)%60));
+  lr5=!digitalRead(5); //debounce, etc
+  
+  data[0]|=(lr6?0x00E0:0); //flash an indicator if something is triggering the can sensor
+  
+  data[9]=(usd?bts((millis()/1000)%60):transpose(bts((millis()/1000/60)%60),trn)); //timer (uses millis(), I know I need an RTC eventually.)
+  data[8]=(usd?bts((millis()/1000/60)%60):transpose(bts((millis()/1000)%60),trn));
+  
   //data[2]|=0x0060;// AM/PM indicators
-  /*for(int i=0;i<10; i++)
-  {
-    for(int p=0;p<16;p++)
-    {
-      //data[i]|=0x8000>>p;*/
-      //mymillis=millis();
-      //while(millis() < mymillis + mydel)
-      //{
-        data[9]|=(millis()%1000<500 ? 0x40 : 0);
-        fdisp();
-        delay(1);
-      //}
-      //backset = (backset+1)%100;
-      /*
-    }
-  }*/
+  data[9]|=(millis()%1000<500 ? 0x40 : 0); //add flashing colon to timer
+  
+  fdisp();
+  
+  delay(1);
   if(splashdel>0)
     splashdel--;
 }
