@@ -50,7 +50,6 @@ void fdisp();
 void splash(char message[8], unsigned int del);
 uint16_t transpose(uint16_t in, byte* pat);
 
-<<<<<<< HEAD
 /*
  =====
 |\ | /|
@@ -79,14 +78,6 @@ uint16_t transpose(uint16_t in, byte* pat);
 const uint16_t lcLetters[] = 
 {
   //0123456789ABCDEF
-=======
-
-
-//letters for alphanumeric digits
-const uint16_t lcLetters[] = 
-{
-  //0123456789X12345
->>>>>>> 646047b25fc773f87097bec5cf25867391187927
   0b1111000000010001, //A
   0b0110010100010101, //B
   0b1001000100010000, //C
