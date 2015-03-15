@@ -25,7 +25,10 @@ class VFD
     bool usd = true;
     byte rawData[4]; //for faster writing to shift registers
     int* toWatch;
+//    Meter* meterList[10] = {0};
     
+    //byte extraMask[8] = {0};
+
   public:
     enum ExtraLed { _power, //diamond looking thing 
                             _fan0,  //U-shaped part
@@ -48,11 +51,29 @@ class VFD
     void setRaw(int dataReg, uint16_t mask);
     void unsetRaw(int dataReg, uint16_t mask);
     void serialDump();
+//    int  add(Meter* meter);
+//    void renderMeter(Meter* meter);
+//    void updateMeters();
     void setOrientation(bool isUpsideDown);
+//    void del(Meter* meter);
     void reset();
     void setNum(int pos, int num);
-    void setMessage(char* message);
 };
+
+
+class Message
+{
+  private:
+    char* contents;//[8] = {0};
+
+  public:
+    Message(char* str);
+    void truncate();
+    void apply(VFD* vfd);
+    void set(char* message);
+
+};
+
 
 #endif
 

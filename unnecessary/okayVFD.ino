@@ -2,17 +2,16 @@
 //created by Aaron Schraner
 //decided can counter is effectively useless
 //repurposed code
-#define TKD2 A0
+
 #include "chardefs.h"
 #include "VFD.h"
 #include "RemoteHandler.h"
-#include "debug.h"
 //#include "Menu.h"
 //#include "MenuItem.h"
 #include <limits.h>
 #include <IRremote.h>
 #include <EEPROM.h>
-//#define DEBUG
+
 #define ADDR_WORD 0x16
 
 void saveWord(char* w)
@@ -60,12 +59,7 @@ void setup()
   Serial.begin(9600); //init serial
   
   irrecv.enableIRIn();
-  Serial.println("\n\n");
-  debug("nothing");
-  debug("nothing");
-  debug("nothing");
-  debug("nothing");
-    Serial.println("\n\n");
+
 }
 
 void loop()
@@ -73,6 +67,5 @@ void loop()
 //TextEdLoop();
 //MenuUILoop();
 //nestedMenuLoop();
-//remoteLoop();
-remoteLoop2();
+remoteLoop();
 }

@@ -48,3 +48,4 @@ Meter::Meter(long long* measure, int pos, int nDigits)
   this->measure=measure;
   this->nDigits=nDigits;
 }
+
