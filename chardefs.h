@@ -1,7 +1,16 @@
 #ifndef CHARDEFS_H
 #define CHARDEFS_H
 #include <stdint.h>
+#include <avr/pgmspace.h>
+#ifndef byte
 #define byte uint8_t
+#endif
+#define usePGM
+#ifdef usePGM
+#define PGM PROGMEM
+#else
+#define PGM
+#endif
 
 //bit order for transposing (flipping) numeric digits
 const byte trn[16]=
@@ -47,7 +56,6 @@ const byte tra[16]=
 void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPin);
 uint16_t anch(char in);
 void fdisp();
-void splash(char message[8], unsigned int del);
 uint16_t transpose(uint16_t in, byte* pat);
 
 /*
@@ -75,7 +83,7 @@ uint16_t transpose(uint16_t in, byte* pat);
 */
 
 //letters for alphanumeric digits
-const uint16_t lcLetters[] = 
+const uint16_t lcLetters[] PGM =
 {
   //0123456789ABCDEF
   0b1111000000010001, //A
@@ -139,7 +147,7 @@ const uint16_t lcLetters[] =
 };
 
 //numbers for alphanumeric digits
-const uint16_t anums[10]=
+const uint16_t anums[10] PGM=
 {
   //0123456789X12345
   0b1011100100010011, //0
@@ -157,7 +165,7 @@ const uint16_t anums[10]=
 
 //numbers for seven segment digits 
 // (not suitable for direct assignment)
-const uint8_t nnums[16] = 
+const uint8_t nnums[16] PGM= 
 {
   //1234567
   0b1110111, //0
@@ -181,9 +189,9 @@ const uint8_t nnums[16] =
 
 const char cmax='z'; //highest recognized character
 
-unsigned int splashdel=0; //for splash messages
+//unsigned int splashdel=0; //for splash messages
 //char splashmsg[8]; //ditto
-char* splashmsg;
+//char* splashmsg;
 
 
 #endif

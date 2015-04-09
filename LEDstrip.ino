@@ -19,6 +19,9 @@
 //
 /*****************************************************************************/
 
+//this is horrid
+//blame them     ^
+
 #include <avr/pgmspace.h>
 
 // ******** DEBUG ==== should auto config to adapt different mother board *********

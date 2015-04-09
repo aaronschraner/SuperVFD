@@ -2,9 +2,12 @@
 #include "actions.h"
 SC* sonyCodes;
 
+typedef char pgm;
+
+#ifdef DEBUG
 void debug(char* action, bool ending)
 {
-#ifdef DEBUG
+#ifdef USESERIAL
   if (ending)
   {
     Serial.print("##DEBUG##: ");
@@ -30,12 +33,15 @@ void ndbug(char* action)
 {
   debug(action, 1);
 }
+#else
+#define debug(x)
+#define ndbug(x)
+#endif
+
 void printDynMem()
 {
+#ifdef USESERIAL
   byte* b = new byte;
-#ifdef DEBUG
-  Serial.print("##DEBUG##: ");
-#endif
   Serial.print((int)b);
   Serial.println(" bytes of dynamic memory used");
   /*#ifdef DEBUG
@@ -48,6 +54,7 @@ void printDynMem()
 #endif
   //return (int)b;
   free(b);
+#endif
 }
 
 
@@ -133,14 +140,18 @@ void myFN(void* pblock)
     pb->vfd->setChar(i, ' ');
 
   pb->vfd->setExtra(VFD::_fan1, pb->fan);
+#ifdef USESERIAL
   Serial.println("A");
+#endif
 }
 
 void myIRhandler(unsigned long code, void* param)
 {
   if (code != ~0)
   {
+#ifdef USESERIAL
     Serial.println(code, HEX);
+#endif
     myParamBlock* pb = (myParamBlock*)(param);
     for (int i = 0; i < 8 ; i++)
     {
@@ -219,11 +230,17 @@ void toggleFan(void* vfd)
 {
 
   static bool fanState = 0;
+#ifdef USESERIAL
   Serial.println("HAXED");
+#endif
   fanState = !fanState;
   ((VFD*)vfd)->setExtra(VFD::_fan1, fanState);
 }
-
+void orient(VFD* vfd)
+{
+  vfd->setOrientation(!vfd->getOrientation());
+  //vfd->reset();
+}
 /*
 void IRhandle(unsigned long code, void* param)
 {
@@ -254,7 +271,7 @@ void IRhandle(unsigned long code, void* param)
 }
 */
 
-bool doRender = 1;
+bool doRender = 0;
 
 void toggleRender(void*)
 {
@@ -356,12 +373,11 @@ class sonypacket
     Menu** activeMenu;
     VFD* vfd;
     sonypacket(Screen* scr, Menu** acm, VFD* vfd): screen(scr), activeMenu(acm), vfd(vfd) {
-      debug("sonypacket constructor");
+
     }
 };
 void unbindSonyNav(void* scr)
 {
-  debug("unbindSonyNav");
   sonypacket* pkt = (sonypacket*)scr;
   pkt->screen->unbindAllButtons();
   MN::bindMN(pkt->screen, *(pkt->activeMenu));
@@ -370,7 +386,6 @@ void unbindSonyNav(void* scr)
 }
 void bindSonyNav(VFD*, void* scr)
 {
-  debug("bindSonyNav");
   sonypacket* sp = (sonypacket*)scr;
   sp->vfd->setExtra(VFD::_hand, 1);
   sp->screen->bindButton(_UP,     IRaction::sendCode, sonyCodes->up);
@@ -380,7 +395,7 @@ void bindSonyNav(VFD*, void* scr)
   sp->screen->bindButton(_SELECT, IRaction::sendCode, sonyCodes->select);
   sp->screen->bindButton(_A,      unbindSonyNav, scr);
   sp->screen->bindButton(_B,      IRaction::sendCode, sonyCodes->power);
-  
+
 }
 //CONDEMNED
 //Massive memory leaks and inefficiency.
@@ -408,21 +423,38 @@ void memctl(VFD* vfd, void* packet)
   }
 }
 
-
+const char labels[][9] PROGMEM =
+{
+  "REMOTE>>",
+  "<DIRECT>",
+  "TV POWER",
+  "HOME",
+  "LEFT",
+  "UP",
+  "RIGHT",
+  "DOWN",
+  "SELECT",
+  "INPUT",
+  "VOLUME +",
+  "VOLUME -"
+};
 void remoteLoop2()
 {
-  debug("remoteLoop2");
+  // <boilerplate code>
   VFD* myVFD = new VFD;
   Screen myScreen(myVFD);
   IRsend irsend;
   IRaction::setIRsend(irsend);
   Menu* activeMenu;
+  // </boilerplate code>
+
   sonyCodes = new SC;
 
   byte* add = new byte('+');
   byte* del = new byte('-');
-
+#ifdef USESERIAL
   Serial.println("Big objects created");
+#endif
   printDynMem();
 
   //declare menus
@@ -439,17 +471,12 @@ void remoteLoop2()
 
   rootMenu.add(new MenuItem("REMOTE>>", Menupacket::menuOpen, new Menupacket(&activeMenu, &sonyTVmenu, &myScreen)));
   rootMenu.add(new MenuItem("<DIRECT>", bindSonyNav, new sonypacket(&myScreen, &activeMenu, myVFD)));
+  rootMenu.add(new MenuItem("FLIP SCR", orient));
   //rootMenu.add(new MenuItem("Devices", Menupacket::menuOpen, new Menupacket(&activeMenu, &devices, &myScreen)); //TODO
-
+  myVFD->setOrientation(1);
   //devices.add(new MenuItem("Sony TV", Menupacket::menuOpen, new Menupacket(&activeMenu, &sonyTVmenu, &myScreen)); //TODO
 
   //memory management
-#ifdef DEBUG
-  rootMenu.add(new MenuItem("DUMP MEM", printDynMem));
-  rootMenu.add(new MenuItem("USE MEM", memctl, add));
-  rootMenu.add(new MenuItem("FREE MEM", memctl, del));
-#endif
-
 
   //stuff for sony TV
   sonyTVmenu.add(new MenuItem("TV POWER", IRaction::sendCode, sonyCodes->power));
@@ -469,18 +496,28 @@ void remoteLoop2()
   activeMenu = &rootMenu;
   MN::bindMN(&myScreen, activeMenu);
 
-  Serial.println("User data initialized");
-  printDynMem();
-
+  // Serial.println("User data initialized");
+  //printDynMem();
+  //myVFD->setNum(0,90);
+  //myVFD->setNum(1,01);
+  myVFD->setMessage(activeMenu->activeItem()->getLabel()); //display the currently highlighted menu item
+  char* activemsg=0;
   while (true)
   {
+    //    myVFD->setExtra(VFD::_oz, 0);
     myScreen.render(); //handle IR signals
 
-    myVFD->setMessage(activeMenu->activeItem()->getLabel()); //display the currently highlighted menu item
+    if (activemsg != activeMenu->activeItem()->getLabel() || myVFD->stateChanged())
+    {
+      myVFD->setMessage(activeMenu->activeItem()->getLabel()); //display the currently highlighted menu item
+      myVFD->stateChanged(); //clear the state checker
+    }
+
+    activemsg = (char*)activeMenu->activeItem()->getLabel();
+
 #ifdef DEBUG
     printDynMem(myVFD);
 #endif
-
     if (doRender)
       myVFD->render();
 

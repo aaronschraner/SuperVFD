@@ -1,13 +1,13 @@
 #ifndef MenuItem_H
 #define MenuItem_H
-#include "VFD.h"
+#include "VFD.h" 
 
 #include <string.h>
 class MenuItem
 {
   private:
-    enum Type { _noparam, _param };
-    char* label;
+    enum Type { _noparam, _param }; //used at execute time
+    const char* label; 
     Type type;
     void *exec=0;
     void *extra=0;
@@ -27,16 +27,14 @@ class MenuItem
       }
     }
     
-    MenuItem(char* label, void(*action)(VFD* vfd))
+    MenuItem(const char* l, void(*action)(VFD* vfd)): label(l)
     {
       this->exec = (void*)action;
-      this->label = label;
       this->type=_noparam;
     }
-    MenuItem(char* label, void(*action)(VFD* vfd, void* packet), void* packet)
+    MenuItem(const char* l, void(*action)(VFD* vfd, void* packet), void* packet):label(l)
     {
       this->exec = (void*)action;
-      this->label = label;
       this->type=_param;
       this->extra=packet;
     }
@@ -52,7 +50,7 @@ class MenuItem
       strncpy(str, label, 8);
     }
 
-    char* getLabel()
+    const char* getLabel()
     {
       return label;
     }

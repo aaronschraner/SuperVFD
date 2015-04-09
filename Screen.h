@@ -2,6 +2,8 @@
 #define Screen_H
 #define MAX_RENDER_FUNCS 5
 #define MAX_IR_CODES 10
+//Screen class
+//mostly just for handling IR signals
 class Screen
 {
   private:

@@ -1,14 +1,5 @@
 #include "chardefs.h"
-//put a message (<=8 characters) for a specified amount of display cycles
-void splash(char message[8], unsigned int del)
-{
-  splashdel = del;
-  splashmsg = message;
-  /*for(int i=0;i<8;i++)
-  {
-    splashmsg[i]=message[i];
-  }*/
-}
+
 
 
 //return upside down segment pattern given order to follow (trn or tra)
@@ -27,15 +18,15 @@ uint16_t transpose(uint16_t in, const byte* pat)
 //using direct memory access for GPIO
 void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPin)
 {
-  PORTD &= ~ONBIT;
+  OBREG &= ~ONBIT;
   //disable display while we think
 
   delayMicroseconds(NPNP_LAG);
   //let the circuit catch up
 
-  PORTB &= ~hslatchPin;
+  CRREG &= ~hslatchPin;
   delayMicroseconds(sdel);
-  PORTB |= hslatchPin;
+  CRREG |= hslatchPin;
   delayMicroseconds(sdel);
   //reset the shift registers
 
@@ -48,22 +39,22 @@ void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPi
     {
       if (!!(data[p] & (0x01 << i)))
       {
-        PORTB |= hsdataPins[p];
+        SDREG |= hsdataPins[p];
       }
       else
       {
-        PORTB &= ~hsdataPins[p];
+        SDREG &= ~hsdataPins[p];
       }
-      //write the shift register data directly through PORTB
+      //write the shift register data directly through SDREG
 
     }
-    PORTB |= hsclockPin;
-    PORTB &= ~hsclockPin;
+    CRREG |= hsclockPin;
+    CRREG &= ~hsclockPin;
     //cycle the clock for the next bit
   }
   //delayMicroseconds(NPNP_LAG); //unnecessary
 
-  PORTD |= ONBIT;
+  OBREG |= ONBIT;
   //re-enable the display
 }
 
@@ -72,16 +63,16 @@ void hskshiftOut(byte hsdataPins[], byte data[], byte hsclockPin, byte hslatchPi
 uint16_t bts(int num)
 {
   uint16_t result = 0x0000;
-  result |= (nnums[num / 10]) >> 1 | (nnums[num / 10] & 0x01) << 15;
-  result |= nnums[num % 10] << 8;
+  result |= ((pgm_read_word_near(nnums + num / 10)) >> 1) | ((pgm_read_word_near(nnums + num / 10) & 0x01) << 15);
+  result |= pgm_read_word_near(nnums + num % 10) << 8;
   return result;
 }
 
 uint16_t sshex(byte num)
 {
   uint16_t result = 0;
-  result |= (nnums[num / 16]) >> 1 | (nnums[num / 16] & 0x01) << 15;
-  result |= nnums[num % 16] << 8;
+  result |= (pgm_read_word_near(nnums + num / 16)) >> 1 | (nnums[num / 16] & 0x01) << 15;
+  result |= pgm_read_word_near(nnums + num % 16) << 8;
   return result;
 }
 //AlphaNumericCHaracter
@@ -96,16 +87,27 @@ uint16_t anch(char in)
     case 0:   return 0;
     case '<': return 0b0100001000000010;
     case '>': return 0b0100100000001000;
+    case ',': return 0b0000100000000000;
+    case '.': return 0b0000010000000000;
+    case '\'':return 0b0000000000000110;
                      //0123456789ABCDEF
       //....
     default:
       if (in >= 'A' && in <= 'z')
       {
+        #ifdef usePGM
+        return pgm_read_word_near(lcLetters+in-'A');
+        #else
         return lcLetters[in - 'A'];
+        #endif
       }
       else if (in >= '0' && in <= '9')
       {
+        #ifdef usePGM
+        return pgm_read_word_near(anums+in-'0');
+        #else
         return anums[in - '0'];
+        #endif
       }
       else
       {
